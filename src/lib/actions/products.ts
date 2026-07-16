@@ -4,6 +4,14 @@ import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { slugify } from '@/lib/utils'
+import { 
+  withMockFallback, 
+  mockGetProducts, 
+  mockGetCategories, 
+  mockGetFeaturedProducts, 
+  mockGetProduct, 
+  mockGetRelatedProducts 
+} from '@/lib/prisma'
 
 const productSchema = z.object({
   name: z.string().min(3).max(100),
@@ -62,177 +70,188 @@ export async function getProducts({
   minPrice?: number
   maxPrice?: number
 } = {}) {
-  const where: {
-    isActive: boolean
-    category?: { slug: string }
-    OR?: Array<{ name?: { contains: string; mode: 'insensitive' }; description?: { contains: string; mode: 'insensitive' }; sku?: { contains: string; mode: 'insensitive' } }>
-    isFeatured?: boolean
-    basePrice?: { gte?: number; lte?: number }
-  } = {
-    isActive: true,
-  }
+  return withMockFallback(async () => {
+    const where: {
+      isActive: boolean
+      category?: { slug: string }
+      OR?: Array<{ name?: { contains: string; mode: 'insensitive' }; description?: { contains: string; mode: 'insensitive' }; sku?: { contains: string; mode: 'insensitive' } }>
+      isFeatured?: boolean
+      basePrice?: { gte?: number; lte?: number }
+    } = {
+      isActive: true,
+    }
 
-  if (category) {
-    where.category = { slug: category }
-  }
+    if (category) {
+      where.category = { slug: category }
+    }
 
-  if (search) {
-    where.OR = [
-      { name: { contains: search, mode: 'insensitive' } },
-      { description: { contains: search, mode: 'insensitive' } },
-      { sku: { contains: search, mode: 'insensitive' } },
-    ]
-  }
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { sku: { contains: search, mode: 'insensitive' } },
+      ]
+    }
 
-  if (featured) {
-    where.isFeatured = true
-  }
+    if (featured) {
+      where.isFeatured = true
+    }
 
-  if (minPrice !== undefined || maxPrice !== undefined) {
-    where.basePrice = {}
-    if (minPrice !== undefined) where.basePrice.gte = minPrice
-    if (maxPrice !== undefined) where.basePrice.lte = maxPrice
-  }
+    if (minPrice !== undefined || maxPrice !== undefined) {
+      where.basePrice = {}
+      if (minPrice !== undefined) where.basePrice.gte = minPrice
+      if (maxPrice !== undefined) where.basePrice.lte = maxPrice
+    }
 
-  let orderBy: any = { createdAt: 'desc' }
-  switch (sort) {
-    case 'price_asc':
-      orderBy = { basePrice: 'asc' }
-      break
-    case 'price_desc':
-      orderBy = { basePrice: 'desc' }
-      break
-    case 'popular':
-      orderBy = { orderItems: { _count: 'desc' } }
-      break
-  }
+    let orderBy: any = { createdAt: 'desc' }
+    switch (sort) {
+      case 'price_asc':
+        orderBy = { basePrice: 'asc' }
+        break
+      case 'price_desc':
+        orderBy = { basePrice: 'desc' }
+        break
+      case 'popular':
+        orderBy = { orderItems: { _count: 'desc' } }
+        break
+    }
 
-  const [products, total] = await Promise.all([
-    prisma.product.findMany({
-      where,
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        include: {
+          category: true,
+          images: { orderBy: { sortOrder: 'asc' }, take: 1 },
+          variants: true,
+          _count: { select: { reviews: true, orderItems: true } },
+        },
+        orderBy,
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.product.count({ where }),
+    ])
+
+    return {
+      products: products.map((p) => ({
+        ...p,
+        price: p.basePrice,
+        compareAtPrice: p.compareAtPrice,
+        image: p.images[0]?.url || '/placeholder-product.jpg',
+        rating: p._count.reviews > 0 ? 4.5 : 0,
+        reviewCount: p._count.reviews,
+        soldCount: p._count.orderItems,
+      })),
+      total,
+      pages: Math.ceil(total / limit),
+      currentPage: page,
+    }
+  }, mockGetProducts({ page, limit, category, search, featured, sort }))
+}
+
+export async function getProduct(slug: string) {
+  return withMockFallback(async () => {
+    const product = await prisma.product.findUnique({
+      where: { slug, isActive: true },
       include: {
         category: true,
-        images: { orderBy: { sortOrder: 'asc' }, take: 1 },
-        variants: true,
+        images: { orderBy: { sortOrder: 'asc' } },
+        variants: { orderBy: { createdAt: 'asc' } },
+        reviews: {
+          where: { isApproved: true },
+          include: { user: { select: { name: true, image: true } } },
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        },
         _count: { select: { reviews: true, orderItems: true } },
       },
-      orderBy,
-      skip: (page - 1) * limit,
-      take: limit,
-    }),
-    prisma.product.count({ where }),
-  ])
+    })
 
-  return {
-    products: products.map((p) => ({
+    if (!product) return null
+
+    return {
+      ...product,
+      price: product.basePrice,
+      compareAtPrice: product.compareAtPrice,
+      rating: product._count.reviews > 0 ? 4.5 : 0,
+      reviewCount: product._count.reviews,
+      soldCount: product._count.orderItems,
+    }
+  }, mockGetProduct(slug))
+}
+
+export async function getFeaturedProducts(limit = 8) {
+  return withMockFallback(async () => {
+    const products = await prisma.product.findMany({
+      where: { isActive: true, isFeatured: true },
+      include: {
+        images: { orderBy: { sortOrder: 'asc' }, take: 1 },
+        category: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    })
+
+    return products.map((p) => ({
       ...p,
       price: p.basePrice,
       compareAtPrice: p.compareAtPrice,
       image: p.images[0]?.url || '/placeholder-product.jpg',
-      rating: p._count.reviews > 0 ? 4.5 : 0, // Placeholder
-      reviewCount: p._count.reviews,
-      soldCount: p._count.orderItems,
-    })),
-    total,
-    pages: Math.ceil(total / limit),
-    currentPage: page,
-  }
-}
-
-export async function getProduct(slug: string) {
-  const product = await prisma.product.findUnique({
-    where: { slug, isActive: true },
-    include: {
-      category: true,
-      images: { orderBy: { sortOrder: 'asc' } },
-      variants: { orderBy: { createdAt: 'asc' } },
-      reviews: {
-        where: { isApproved: true },
-        include: { user: { select: { name: true, image: true } } },
-        orderBy: { createdAt: 'desc' },
-        take: 10,
-      },
-      _count: { select: { reviews: true, orderItems: true } },
-    },
-  })
-
-  if (!product) return null
-
-  return {
-    ...product,
-    price: product.basePrice,
-    compareAtPrice: product.compareAtPrice,
-    rating: product._count.reviews > 0 ? 4.5 : 0,
-    reviewCount: product._count.reviews,
-    soldCount: product._count.orderItems,
-  }
-}
-
-export async function getFeaturedProducts(limit = 8) {
-  const products = await prisma.product.findMany({
-    where: { isActive: true, isFeatured: true },
-    include: {
-      images: { orderBy: { sortOrder: 'asc' }, take: 1 },
-      category: true,
-    },
-    orderBy: { createdAt: 'desc' },
-    take: limit,
-  })
-
-  return products.map((p) => ({
-    ...p,
-    price: p.basePrice,
-    compareAtPrice: p.compareAtPrice,
-    image: p.images[0]?.url || '/placeholder-product.jpg',
-  }))
+    }))
+  }, mockGetFeaturedProducts(limit))
 }
 
 export async function getRelatedProducts(productId: string, categoryId: string, limit = 4) {
-  const products = await prisma.product.findMany({
-    where: {
-      id: { not: productId },
-      categoryId,
-      isActive: true,
-    },
-    include: {
-      images: { orderBy: { sortOrder: 'asc' }, take: 1 },
-    },
-    orderBy: { createdAt: 'desc' },
-    take: limit,
-  })
+  return withMockFallback(async () => {
+    const products = await prisma.product.findMany({
+      where: {
+        id: { not: productId },
+        categoryId,
+        isActive: true,
+      },
+      include: {
+        images: { orderBy: { sortOrder: 'asc' }, take: 1 },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    })
 
-  return products.map((p) => ({
-    ...p,
-    price: p.basePrice,
-    compareAtPrice: p.compareAtPrice,
-    image: p.images[0]?.url || '/placeholder-product.jpg',
-  }))
+    return products.map((p) => ({
+      ...p,
+      price: p.basePrice,
+      compareAtPrice: p.compareAtPrice,
+      image: p.images[0]?.url || '/placeholder-product.jpg',
+    }))
+  }, mockGetRelatedProducts(productId, categoryId, limit))
 }
 
 export async function getCategories() {
-  const categories = await prisma.category.findMany({
-    where: { isActive: true },
-    include: {
-      _count: { select: { products: { where: { isActive: true } } } },
-      children: { where: { isActive: true } },
-    },
-    orderBy: { sortOrder: 'asc' },
-  })
-
-  return categories
+  return withMockFallback(async () => {
+    const categories = await prisma.category.findMany({
+      where: { isActive: true },
+      include: {
+        _count: { select: { products: { where: { isActive: true } } } },
+        children: { where: { isActive: true } },
+      },
+      orderBy: { sortOrder: 'asc' },
+    })
+    return categories
+  }, mockGetCategories())
 }
 
 export async function getCategory(slug: string) {
-  return prisma.category.findUnique({
-    where: { slug, isActive: true },
-    include: {
-      children: { where: { isActive: true } },
-      _count: { select: { products: { where: { isActive: true } } } },
-    },
-  })
+  return withMockFallback(async () => {
+    return prisma.category.findUnique({
+      where: { slug, isActive: true },
+      include: {
+        children: { where: { isActive: true } },
+        _count: { select: { products: { where: { isActive: true } } } },
+      },
+    })
+  }, Promise.resolve(mockCategories.find(c => c.slug === slug) || null))
 }
 
-// Admin actions
+// Admin actions (still require real DB)
 export async function createProduct(data: z.infer<typeof productSchema>) {
   const parsed = productSchema.safeParse(data)
   if (!parsed.success) {
@@ -242,7 +261,6 @@ export async function createProduct(data: z.infer<typeof productSchema>) {
   const { images, variants, ...productData } = parsed.data
   const slug = productData.slug || slugify(productData.name)
 
-  // Check SKU uniqueness
   const existingSku = await prisma.product.findUnique({ where: { sku: productData.sku } })
   if (existingSku) {
     return { success: false, error: 'SKU sudah digunakan' }
@@ -316,10 +334,8 @@ export async function updateProduct(id: string, data: Partial<z.infer<typeof pro
 
 export async function deleteProduct(id: string) {
   await prisma.product.delete({ where: { id } })
-
   revalidatePath('/admin/products')
   revalidatePath('/products/[slug]', 'page')
-
   return { success: true }
 }
 
@@ -328,9 +344,7 @@ export async function toggleProductStatus(id: string, isActive: boolean) {
     where: { id },
     data: { isActive },
   })
-
   revalidatePath('/admin/products')
   revalidatePath('/products/[slug]', 'page')
-
   return { success: true, product }
 }
