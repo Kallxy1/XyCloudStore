@@ -64,13 +64,11 @@ export async function addToWishlist(productId: string, variantId?: string) {
     })
   }
 
-  const existing = await prisma.wishlistItem.findUnique({
+  const existing = await prisma.wishlistItem.findFirst({
     where: {
-      wishlistId_productId_variantId: {
-        wishlistId: wishlist.id,
-        productId,
-        variantId: variantId || null,
-      },
+      wishlistId: wishlist.id,
+      productId,
+      variantId: variantId ?? null,
     },
   })
 
@@ -82,7 +80,7 @@ export async function addToWishlist(productId: string, variantId?: string) {
     data: {
       wishlistId: wishlist.id,
       productId,
-      variantId: variantId || null,
+      variantId: variantId ?? null,
     },
   })
 
@@ -140,13 +138,11 @@ export async function moveToCart(itemId: string) {
     })
   }
 
-  const existingCartItem = await prisma.cartItem.findUnique({
+  const existingCartItem = await prisma.cartItem.findFirst({
     where: {
-      cartId_productId_variantId: {
-        cartId: cart.id,
-        productId: item.productId,
-        variantId: item.variantId || null,
-      },
+      cartId: cart.id,
+      productId: item.productId,
+      variantId: item.variantId ?? null,
     },
   })
 
@@ -160,7 +156,7 @@ export async function moveToCart(itemId: string) {
       data: {
         cartId: cart.id,
         productId: item.productId,
-        variantId: item.variantId || null,
+        variantId: item.variantId ?? null,
         quantity: 1,
       },
     })

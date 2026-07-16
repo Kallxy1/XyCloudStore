@@ -37,7 +37,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   const page = parseInt(params.page || '1')
   const category = params.category
   const search = params.search
-  const sort = params.sort || 'newest'
+  const sort = (params.sort as 'newest' | 'price_asc' | 'price_desc' | 'popular') || 'newest'
   const minPrice = params.minPrice ? parseInt(params.minPrice) : undefined
   const maxPrice = params.maxPrice ? parseInt(params.maxPrice) : undefined
   const featured = params.featured === 'true'
@@ -90,7 +90,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                 <label htmlFor="category" className="block text-sm font-medium mb-2">
                   Kategori
                 </label>
-                <Select name="category" value={category || 'all'} onChange={() => {}}>
+                <Select name="category" value={category || 'all'} onValueChange={() => {}}>
                   <SelectTrigger>
                     <SelectValue placeholder="Semua Kategori" />
                   </SelectTrigger>
@@ -136,7 +136,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                 <label htmlFor="sort" className="block text-sm font-medium mb-2">
                   Urutkan
                 </label>
-                <Select name="sort" value={sort} onChange={() => {}}>
+                <Select name="sort" value={sort} onValueChange={() => {}}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -156,7 +156,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                   id="featured"
                   name="featured"
                   checked={featured}
-                  onChange={() => {}}
+                  onCheckedChange={() => {}}
                 />
                 <label htmlFor="featured" className="text-sm">
                   Hanya Produk Unggulan
@@ -195,7 +195,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
               Menampilkan {productsData.products.length} dari {productsData.total} produk
             </p>
             <div className="flex items-center gap-4">
-              <Select value={sort} onChange={() => {}}>
+              <Select value={sort} onValueChange={() => {}}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue />
                 </SelectTrigger>
@@ -214,7 +214,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
           <ProductGrid
             products={productsData.products}
             variant="default"
-            columns={{ base: 1, sm: 2, md: 3, lg: 4 }}
+            columns={{ base: 1, sm: 2, md: 3, lg: 4, xl: 5 }}
           />
 
           {/* Pagination */}

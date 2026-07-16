@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ProductGallery } from '@/components/product/product-gallery'
+import { ProductGrid } from '@/components/product/product-grid'
 import { getProduct, getRelatedProducts } from '@/lib/actions/products'
 import { formatCurrency, cn } from '@/lib/utils'
 import { AddToCartForm } from './add-to-cart-form'
@@ -273,7 +274,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
           <ProductGrid
             products={relatedProducts}
             variant="default"
-            columns={{ base: 1, sm: 2, md: 4, lg: 4 }}
+            columns={{ base: 1, sm: 2, md: 4, lg: 4, xl: 5 }}
           />
         </section>
       )}

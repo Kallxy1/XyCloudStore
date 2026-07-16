@@ -139,7 +139,7 @@ export async function getAdminOrder(orderId: string) {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
     include: {
-      user: { select: { id: true, name: true, email: true, phone: true } },
+      user: { select: { id: true, name: true, email: true } },
       items: {
         include: {
           product: { include: { images: { take: 1 } } },
@@ -148,7 +148,6 @@ export async function getAdminOrder(orderId: string) {
       },
       payments: true,
       statusHistory: {
-        include: { user: { select: { name: true } } },
         orderBy: { createdAt: 'desc' },
       },
     },
@@ -190,8 +189,8 @@ export async function updateOrderStatus(formData: FormData) {
     return { success: false, error: 'Pesanan tidak ditemukan' }
   }
 
-  await prisma.$transaction([
-    prisma.order.update({
+  await prisma.$transaction(async (tx) => {
+    await tx.order.update({
       where: { id: orderId },
       data: {
         status,
@@ -207,14 +206,16 @@ export async function updateOrderStatus(formData: FormData) {
           },
         },
       },
-    }),
+    })
+
     // Update payment status if needed
-    status === 'DELIVERED' &&
-      prisma.payment.updateMany({
+    if (status === 'DELIVERED') {
+      await tx.payment.updateMany({
         where: { orderId, status: { not: 'PAID' } },
         data: { status: 'PAID', paidAt: new Date() },
-      }),
-  ])
+      })
+    }
+  })
 
   revalidatePath('/admin/orders')
   revalidatePath(`/admin/orders/${orderId}`)

@@ -2,12 +2,11 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Trash2, Heart, Loader2 } from 'lucide-react'
+import { ArrowLeft, Trash2, Heart, Loader2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { CartItem } from '@/components/cart/cart-item'
 import { CartSummary } from '@/components/cart/cart-summary'
 import { useCart } from '@/hooks/use-cart'
-import { formatCurrency } from '@/lib/utils'
 import { formatCurrency, cn } from '@/lib/utils'
 import { toast } from 'react-hot-toast'
 
@@ -53,7 +52,14 @@ export function CartView({ initialCart }: CartViewProps) {
 
   // Merge initial cart with client cart
   const cartItems = items.length > 0 ? items : initialCart.items
-  const subtotal = cartItems.reduce((sum, item) => sum + item.subtotal, 0)
+  
+  // Calculate subtotal for each item
+  const cartItemsWithSubtotal = cartItems.map(item => ({
+    ...item,
+    subtotal: (item.product.basePrice + (item.variant?.price || 0)) * item.quantity,
+  }))
+  
+  const subtotal = cartItemsWithSubtotal.reduce((sum, item) => sum + item.subtotal, 0)
   const total = subtotal - discount + shippingCost
 
   const handleApplyCoupon = async () => {
@@ -90,7 +96,7 @@ export function CartView({ initialCart }: CartViewProps) {
   }
 
   const handleCheckout = () => {
-    if (cartItems.length === 0) return
+    if (cartItemsWithSubtotal.length === 0) return
     window.location.href = '/checkout'
   }
 
@@ -98,7 +104,7 @@ export function CartView({ initialCart }: CartViewProps) {
     window.location.href = '/products'
   }
 
-  if (cartItems.length === 0) {
+  if (cartItemsWithSubtotal.length === 0) {
     return (
       <div className="container mx-auto px-4 py-16 text-center">
         <div className="max-w-md mx-auto">
@@ -137,7 +143,7 @@ export function CartView({ initialCart }: CartViewProps) {
 
             {/* Items */}
             <div className="divide-y">
-              {cartItems.map(item => (
+              {cartItemsWithSubtotal.map(item => (
                 <CartItem key={item.id} item={item} />
               ))}
             </div>
@@ -149,7 +155,7 @@ export function CartView({ initialCart }: CartViewProps) {
                 Lanjut Belanja
               </Button>
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <span>{cartItems.length} item dipilih</span>
+                <span>{cartItemsWithSubtotal.length} item dipilih</span>
                 <Button variant="ghost" size="sm" onClick={() => {}}>
                   <Trash2 className="h-4 w-4 mr-1" />
                   Hapus Semua
@@ -174,7 +180,7 @@ export function CartView({ initialCart }: CartViewProps) {
         <div className="lg:col-span-1">
           <CartSummary
             subtotal={subtotal}
-            itemCount={cartItems.reduce((sum, item) => sum + item.quantity, 0)}
+            itemCount={cartItemsWithSubtotal.reduce((sum, item) => sum + item.quantity, 0)}
             onCheckout={handleCheckout}
             onContinueShopping={handleContinueShopping}
             shippingCost={shippingCost}
@@ -190,5 +196,3 @@ export function CartView({ initialCart }: CartViewProps) {
   )
 }
 
-// Missing imports
-import { X } from 'lucide-react'

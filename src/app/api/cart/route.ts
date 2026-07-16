@@ -95,13 +95,11 @@ export async function POST(request: Request) {
     })
   }
 
-  const existingItem = await prisma.cartItem.findUnique({
+  const existingItem = await prisma.cartItem.findFirst({
     where: {
-      cartId_productId_variantId: {
-        cartId: cart.id,
-        productId,
-        variantId: variantId || null,
-      },
+      cartId: cart.id,
+      productId,
+      variantId: variantId ?? null,
     },
   })
 
@@ -120,7 +118,7 @@ export async function POST(request: Request) {
       data: {
         cartId: cart.id,
         productId,
-        variantId: variantId || null,
+        variantId: variantId as string | null,
         quantity,
       },
     })

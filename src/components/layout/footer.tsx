@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Facebook, Instagram, Twitter, Youtube, TikTok } from 'lucide-react'
+import { Facebook, Instagram, Twitter, Youtube, Music } from 'lucide-react'
 
 export function Footer() {
   const currentYear = new Date().getFullYear()
@@ -37,7 +37,7 @@ export function Footer() {
     { label: 'Instagram', href: '#', icon: Instagram },
     { label: 'Twitter', href: '#', icon: Twitter },
     { label: 'YouTube', href: '#', icon: Youtube },
-    { label: 'TikTok', href: '#', icon: TikTok },
+    { label: 'TikTok', href: '#', icon: Music },
   ]
 
   const paymentMethods = [

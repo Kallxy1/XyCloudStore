@@ -211,7 +211,13 @@ export async function createOrder(formData: FormData) {
 
   // Handle payment based on method
   if (paymentMethod === 'MIDTRANS') {
-    const snapToken = await createMidtransTransaction(order)
+    const snapToken = await createMidtransTransaction({
+      id: order.id,
+      orderNumber: order.orderNumber,
+      total: order.total,
+      user: { email: session.user.email!, name: session.user.name ?? null },
+      items: order.items,
+    })
     return { success: true, orderId: order.id, snapToken, redirectUrl: `/checkout/success?orderId=${order.id}` }
   }
 
@@ -232,7 +238,7 @@ export async function createOrder(formData: FormData) {
   return { success: true, orderId: order.id, redirectUrl: `/checkout/success?orderId=${order.id}` }
 }
 
-async function createMidtransTransaction(order: { id: string; orderNumber: string; total: number; user: { email: string; name: string | null } }) {
+async function createMidtransTransaction(order: { id: string; orderNumber: string; total: number; user: { email: string; name: string | null }; items: { sku: string; price: number; quantity: number; name: string }[] }) {
   const parameter = {
     transaction_details: {
       order_id: order.orderNumber,
@@ -321,7 +327,14 @@ export async function cancelOrder(orderId: string) {
 
   const order = await prisma.order.findFirst({
     where: { id: orderId, userId: session.user.id },
-    include: { items: true, payments: true },
+    include: { 
+      items: {
+        include: {
+          product: true,
+        }
+      }, 
+      payments: true 
+    },
   })
 
   if (!order) {

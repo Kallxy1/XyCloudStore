@@ -62,7 +62,13 @@ export async function getProducts({
   minPrice?: number
   maxPrice?: number
 } = {}) {
-  const where: Record<string, unknown> = {
+  const where: {
+    isActive: boolean
+    category?: { slug: string }
+    OR?: Array<{ name?: { contains: string; mode: 'insensitive' }; description?: { contains: string; mode: 'insensitive' }; sku?: { contains: string; mode: 'insensitive' } }>
+    isFeatured?: boolean
+    basePrice?: { gte?: number; lte?: number }
+  } = {
     isActive: true,
   }
 
@@ -88,7 +94,7 @@ export async function getProducts({
     if (maxPrice !== undefined) where.basePrice.lte = maxPrice
   }
 
-  let orderBy: Record<string, string> = { createdAt: 'desc' }
+  let orderBy: any = { createdAt: 'desc' }
   switch (sort) {
     case 'price_asc':
       orderBy = { basePrice: 'asc' }
@@ -246,11 +252,18 @@ export async function createProduct(data: z.infer<typeof productSchema>) {
     data: {
       ...productData,
       slug,
-      images: images?.map((url, index) => ({ url, sortOrder: index })) || [],
+      images: images?.map((url, index) => ({ url, sortOrder: index })) ? {
+        create: images?.map((url, index) => ({ url, sortOrder: index })) || [],
+      } : undefined,
       variants: variants?.map((v) => ({
         ...v,
         sku: v.sku || `${productData.sku}-${slugify(v.value)}`,
-      })) || [],
+      })) ? {
+        create: variants?.map((v) => ({
+          ...v,
+          sku: v.sku || `${productData.sku}-${slugify(v.value)}`,
+        })) || [],
+      } : undefined,
     },
     include: { images: true, variants: true },
   })

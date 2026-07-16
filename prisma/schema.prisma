@@ -21,6 +21,7 @@ enum Role {
 
 enum OrderStatus {
   PENDING
+  CONFIRMED
   PAID
   PROCESSING
   SHIPPED

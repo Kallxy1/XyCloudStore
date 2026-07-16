@@ -1,21 +1,6 @@
 import { auth } from '@/lib/auth'
-import { prisma } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 import { NextResponse } from 'next/server'
-
-// This is a mock - in real implementation, import from '@/lib/prisma'
-const mockPrisma = {
-  review: {
-    findMany: async () => [],
-    findUnique: async () => null,
-    create: async () => ({}),
-    update: async () => ({}),
-    delete: async () => ({}),
-    count: async () => 0,
-  },
-  order: {
-    findFirst: async () => null,
-  },
-}
 
 export async function GET(request: Request) {
   const session = await auth()
@@ -29,14 +14,14 @@ export async function GET(request: Request) {
   }
 
   const [reviews, total] = await Promise.all([
-    mockPrisma.review.findMany({
+    prisma.review.findMany({
       where: { productId, isApproved: true },
       include: { user: { select: { name: true, image: true } } },
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
       take: limit,
     }),
-    mockPrisma.review.count({ where: { productId, isApproved: true } }),
+    prisma.review.count({ where: { productId, isApproved: true } }),
   ])
 
   return NextResponse.json({
@@ -70,7 +55,7 @@ export async function POST(request: Request) {
   }
 
   // Check if user already reviewed
-  const existing = await mockPrisma.review.findUnique({
+  const existing = await prisma.review.findUnique({
     where: { userId_productId: { userId: session.user.id, productId } },
   })
 
@@ -81,7 +66,7 @@ export async function POST(request: Request) {
   // Verify purchase if orderId provided
   let isVerified = false
   if (orderId) {
-    const order = await mockPrisma.order.findFirst({
+    const order = await prisma.order.findFirst({
       where: {
         id: orderId,
         userId: session.user.id,
@@ -92,7 +77,7 @@ export async function POST(request: Request) {
     isVerified = !!order
   }
 
-  await mockPrisma.review.create({
+  await prisma.review.create({
     data: {
       userId: session.user.id,
       productId,

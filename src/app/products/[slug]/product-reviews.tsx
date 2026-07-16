@@ -18,7 +18,7 @@ interface ProductReviewsProps {
     images: string[]
     isVerified: boolean
     helpful: number
-    createdAt: string
+    createdAt: Date | string
     user: { name: string | null; image: string | null }
   }>
 }

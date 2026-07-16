@@ -2,7 +2,21 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { CreditCard, Truck, Shield, RotateCcw, CheckCircle, Radio, Circle, MapPin, User, Phone, Mail } from 'lucide-react'
+
+// Midtrans Snap types
+declare global {
+  interface Window {
+    snap: {
+      pay: (token: string, options: {
+        onSuccess?: () => void
+        onPending?: () => void
+        onError?: () => void
+        onClose?: () => void
+      }) => void
+    } | undefined
+  }
+}
+import { CreditCard, Truck, Shield, RotateCcw, CheckCircle, MapPin, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -10,7 +24,7 @@ import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, cn } from '@/lib/utils'
 import { createOrder } from '@/lib/actions/checkout'
 import { toast } from 'react-hot-toast'
 
@@ -69,7 +83,7 @@ const paymentMethods = [
 
 export function CheckoutForm({ initialCart, initialAddresses }: CheckoutFormProps) {
   const router = useRouter()
-  const [step, setStep] = useState(1) // 1: Address, 2: Shipping, 3: Payment, 4: Review
+  const [step, setStep] = useState(1)
   const [selectedAddressId, setSelectedAddressId] = useState<string>(initialAddresses.find(a => a.isDefault)?.id || initialAddresses[0]?.id || '')
   const [selectedShipping, setSelectedShipping] = useState('regular')
   const [selectedPayment, setSelectedPayment] = useState('MIDTRANS')
@@ -96,6 +110,8 @@ export function CheckoutForm({ initialCart, initialAddresses }: CheckoutFormProp
   const shippingCost = shippingOption.cost
   const total = subtotal + shippingCost
 
+  const selectedAddress = initialAddresses.find(a => a.id === selectedAddressId)
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedAddressId) {
@@ -115,7 +131,6 @@ export function CheckoutForm({ initialCart, initialAddresses }: CheckoutFormProp
       
       if (result.success) {
         if (result.snapToken) {
-          // Redirect to Midtrans Snap
           window.snap?.pay(result.snapToken, {
             onSuccess: () => router.push(`/checkout/success?orderId=${result.orderId}`),
             onPending: () => router.push(`/checkout/pending?orderId=${result.orderId}`),
@@ -152,7 +167,6 @@ export function CheckoutForm({ initialCart, initialAddresses }: CheckoutFormProp
         toast.success('Alamat ditambahkan')
         setShowAddressForm(false)
         setNewAddress({ label: 'Rumah', recipientName: '', phone: '', province: '', city: '', district: '', village: '', postalCode: '', detail: '', isDefault: false })
-        // Refresh addresses - in real app, would use server action
         router.refresh()
       } else {
         toast.error(data.error || 'Gagal menambah alamat')
@@ -167,7 +181,7 @@ export function CheckoutForm({ initialCart, initialAddresses }: CheckoutFormProp
       {/* Progress Steps */}
       <div className="hidden md:flex items-center justify-between mb-8">
         {[1, 2, 3, 4].map((s, i) => (
-          <div key={s} className="flex flex-col items-center">
+          <div key={s} className="flex flex-col items-center relative">
             <div className={cn(
               'w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all',
               step >= s ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
@@ -395,12 +409,11 @@ export function CheckoutForm({ initialCart, initialAddresses }: CheckoutFormProp
                 {/* Address Summary */}
                 <div className="p-4 bg-muted/50 rounded-lg">
                   <p className="font-medium mb-2">Alamat Pengiriman</p>
-                  const address = initialAddresses.find(a => a.id === selectedAddressId)
-                  {address && (
+                  {selectedAddress && (
                     <address className="not-italic text-sm text-muted-foreground">
-                      {address.recipientName} - {address.phone}<br />
-                      {address.detail}, {address.village}, {address.district}<br />
-                      {address.city} {address.postalCode}, {address.province}
+                      {selectedAddress.recipientName} - {selectedAddress.phone}<br />
+                      {selectedAddress.detail}, {selectedAddress.village}, {selectedAddress.district}<br />
+                      {selectedAddress.city} {selectedAddress.postalCode}, {selectedAddress.province}
                     </address>
                   )}
                 </div>
@@ -498,8 +511,3 @@ export function CheckoutForm({ initialCart, initialAddresses }: CheckoutFormProp
     </div>
   )
 }
-
-// Missing imports
-import { ArrowRight } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'

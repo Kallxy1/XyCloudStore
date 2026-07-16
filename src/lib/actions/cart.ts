@@ -117,13 +117,11 @@ export async function addToCart(formData: FormData) {
   }
 
   // Check if item already in cart
-  const existingItem = await prisma.cartItem.findUnique({
+  const existingItem = await prisma.cartItem.findFirst({
     where: {
-      cartId_productId_variantId: {
-        cartId: cart.id,
-        productId,
-        variantId: variantId || null,
-      },
+      cartId: cart.id,
+      productId,
+      variantId: variantId ?? null,
     },
   })
 
@@ -142,7 +140,7 @@ export async function addToCart(formData: FormData) {
       data: {
         cartId: cart.id,
         productId,
-        variantId: variantId || null,
+        variantId: variantId ?? null,
         quantity,
       },
     })
@@ -174,7 +172,7 @@ export async function updateCartQuantity(formData: FormData) {
 
   const cartItem = await prisma.cartItem.findUnique({
     where: { id: itemId },
-    include: { product: true, variant: true },
+    include: { product: true, variant: true, cart: true },
   })
 
   if (!cartItem || cartItem.cart.userId !== session.user.id) {

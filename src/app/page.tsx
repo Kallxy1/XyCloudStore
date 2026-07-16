@@ -14,6 +14,8 @@ export const metadata: Metadata = {
   description: 'Belanja online aman dan nyaman di TokoKita. Produk berkualitas, harga terjangkau, pengiriman cepat ke seluruh Indonesia.',
 }
 
+export const dynamic = 'force-dynamic'
+
 export default async function HomePage() {
   const [featuredProducts, categories, flashSaleProducts] = await Promise.all([
     getFeaturedProducts(8),
@@ -182,7 +184,7 @@ export default async function HomePage() {
               </Link>
             </div>
 
-            <ProductGrid products={flashSaleProducts.products} variant="default" columns={{ base: 1, sm: 2, md: 4, lg: 4 }} />
+            <ProductGrid products={flashSaleProducts.products} variant="default" columns={{ base: 1, sm: 2, md: 4, lg: 4, xl: 5 }} />
           </div>
         </section>
       )}
@@ -200,7 +202,7 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          <ProductGrid products={featuredProducts} variant="default" columns={{ base: 1, sm: 2, md: 4, lg: 4 }} />
+          <ProductGrid products={featuredProducts} variant="default" columns={{ base: 1, sm: 2, md: 4, lg: 4, xl: 5 }} />
         </div>
       </section>
 

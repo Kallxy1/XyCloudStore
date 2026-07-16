@@ -221,10 +221,15 @@ export async function POST(request: Request) {
     const transaction = await snap.createTransaction(parameter)
     
     // Update payment with midtrans token
-    await prisma.payment.update({
+    const payment = await prisma.payment.findFirst({
       where: { orderId: order.id },
-      data: { midtransToken: transaction.token, midtransOrderId: order.orderNumber },
     })
+    if (payment) {
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: { midtransToken: transaction.token, midtransOrderId: order.orderNumber },
+      })
+    }
 
     return NextResponse.json({ 
       success: true, 
@@ -237,7 +242,7 @@ export async function POST(request: Request) {
   if (paymentMethod === 'COD') {
     await prisma.order.update({
       where: { id: order.id },
-      data: { status: 'CONFIRMED', paymentStatus: 'PENDING' },
+      data: { status: 'PENDING', paymentStatus: 'PENDING' },
     })
     return NextResponse.json({ 
       success: true, 

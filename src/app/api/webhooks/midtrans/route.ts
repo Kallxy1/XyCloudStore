@@ -15,6 +15,7 @@ export async function POST(request: Request) {
       va_numbers,
       signature_key,
       gross_amount,
+      status_code,
     } = body
 
     // Verify signature
@@ -34,7 +35,14 @@ export async function POST(request: Request) {
     // Find order by Midtrans order_id (which is our orderNumber)
     const order = await prisma.order.findUnique({
       where: { orderNumber: order_id },
-      include: { payments: true, items: true },
+      include: { 
+        payments: true, 
+        items: {
+          include: {
+            product: true,
+          }
+        }
+      },
     })
 
     if (!order) {
@@ -43,19 +51,24 @@ export async function POST(request: Request) {
     }
 
     // Update payment record
-    const payment = await prisma.payment.update({
+    const payment = await prisma.payment.findFirst({
       where: { orderId: order.id },
-      data: {
-        midtransOrderId: order_id,
-        transactionId: transaction_id,
-        paymentType: payment_type,
-        bank: bank || null,
-        vaNumber: va_numbers?.[0]?.va_number || null,
-        rawResponse: JSON.stringify(body),
-        status: mapMidtransStatus(transaction_status, fraud_status),
-        paidAt: ['settlement', 'capture'].includes(transaction_status) ? new Date() : null,
-      },
     })
+    if (payment) {
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          midtransOrderId: order_id,
+          transactionId: transaction_id,
+          paymentType: payment_type,
+          bank: bank || null,
+          vaNumber: va_numbers?.[0]?.va_number || null,
+          rawResponse: JSON.stringify(body),
+          status: mapMidtransStatus(transaction_status, fraud_status),
+          paidAt: ['settlement', 'capture'].includes(transaction_status) ? new Date() : null,
+        },
+      })
+    }
 
     // Update order status based on payment
     let newOrderStatus = order.status
@@ -65,7 +78,7 @@ export async function POST(request: Request) {
       case 'capture':
       case 'settlement':
         newPaymentStatus = 'PAID'
-        newOrderStatus = 'CONFIRMED'
+        newOrderStatus = 'PROCESSING'
         break
       case 'pending':
         newPaymentStatus = 'PENDING'

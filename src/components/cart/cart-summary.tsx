@@ -12,7 +12,7 @@ interface CartSummaryProps {
   onContinueShopping: () => void
   shippingCost?: number
   discount?: number
-  couponCode?: string
+  couponCode?: string | null
   onApplyCoupon: (code: string) => void
   onRemoveCoupon: () => void
   isApplyingCoupon?: boolean
